@@ -3,11 +3,19 @@ import requests
 from flask import Flask, render_template, request, jsonify
 from dotenv import load_dotenv
 
+# Load local .env if running locally
 load_dotenv()
+
 app = Flask(__name__)
 application = app
 
+# Get the API key from environment (works for both local + Vercel)
 WEATHER_API_KEY = os.getenv("WEATHER_API_KEY")
+
+# Fallback if key is missing (useful for debugging)
+if not WEATHER_API_KEY:
+    print("⚠️ WARNING: WEATHER_API_KEY not found! Please set it in environment variables.")
+
 WEATHER_BASE_URL = "https://api.weatherapi.com/v1"
 
 
@@ -30,7 +38,7 @@ def get_weather():
         else:
             return jsonify({"success": False, "message": "City or coordinates required."}), 400
 
-        # Fetch forecast and AQI
+        # Build the forecast URL
         forecast_url = f"{WEATHER_BASE_URL}/forecast.json"
         params = {
             "key": WEATHER_API_KEY,
@@ -39,12 +47,14 @@ def get_weather():
             "aqi": "yes",
             "alerts": "no"
         }
+
         response = requests.get(forecast_url, params=params)
         data = response.json()
 
         if "error" in data:
             return jsonify({"success": False, "message": data["error"]["message"]}), 404
 
+        # Astronomy data
         astronomy_url = f"{WEATHER_BASE_URL}/astronomy.json"
         astronomy_params = {"key": WEATHER_API_KEY, "q": query}
         astronomy_resp = requests.get(astronomy_url, params=astronomy_params).json()
@@ -115,4 +125,3 @@ def get_weather():
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)
-
