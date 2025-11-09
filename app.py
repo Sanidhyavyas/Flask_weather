@@ -3,17 +3,22 @@ import requests
 from flask import Flask, render_template, request, jsonify
 from dotenv import load_dotenv
 
+# Load .env file locally (only works when testing on your PC)
 load_dotenv()
 
-app = Flask(__name__)
-application = app
-
+# Debug print to verify key visibility (will show in Vercel build logs)
 print("DEBUG → API_KEY:", os.getenv("API_KEY"))
 
-WEATHER_API_KEY = os.getenv("WEATHER_API_KEY")
+app = Flask(__name__)
+application = app  # For Vercel compatibility
+
+# Get API key from environment
+WEATHER_API_KEY = os.getenv("API_KEY")
 
 if not WEATHER_API_KEY:
-    print("⚠️ WARNING: WEATHER_API_KEY not found! Please set it in environment variables.")
+    print("⚠️ WARNING: API_KEY not found in environment.")
+else:
+    print("✅ API_KEY loaded successfully!")
 
 WEATHER_BASE_URL = "https://api.weatherapi.com/v1"
 
@@ -37,7 +42,7 @@ def get_weather():
         else:
             return jsonify({"success": False, "message": "City or coordinates required."}), 400
 
-        # Build the forecast URL
+        # Fetch weather forecast data
         forecast_url = f"{WEATHER_BASE_URL}/forecast.json"
         params = {
             "key": WEATHER_API_KEY,
@@ -53,7 +58,7 @@ def get_weather():
         if "error" in data:
             return jsonify({"success": False, "message": data["error"]["message"]}), 404
 
-        # Astronomy data
+        # Fetch astronomy (sunrise/sunset) data
         astronomy_url = f"{WEATHER_BASE_URL}/astronomy.json"
         astronomy_params = {"key": WEATHER_API_KEY, "q": query}
         astronomy_resp = requests.get(astronomy_url, params=astronomy_params).json()
