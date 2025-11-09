@@ -3,25 +3,26 @@ import requests
 from flask import Flask, render_template, request, jsonify
 from dotenv import load_dotenv
 
-# Load .env file locally (only works when testing on your PC)
-load_dotenv()
+# ✅ Force load the .env file by specifying absolute path
+env_path = os.path.join(os.path.dirname(__file__), '.env')
+print(f"Loading .env from: {env_path}")
+load_dotenv(dotenv_path=env_path)
 
-# Debug print to verify key visibility (will show in Vercel build logs)
+# Check if the key is now found
 print("DEBUG → API_KEY:", os.getenv("API_KEY"))
+print("DEBUG → WEATHER_API_URL:", os.getenv("WEATHER_API_URL"))
 
 app = Flask(__name__)
-application = app  # For Vercel compatibility
+application = app  # for Vercel compatibility
 
-# Get API key from environment
+# ✅ Load environment variables
 WEATHER_API_KEY = os.getenv("API_KEY")
+WEATHER_BASE_URL = os.getenv("WEATHER_API_URL") or "https://api.weatherapi.com/v1"
 
 if not WEATHER_API_KEY:
-    print("⚠️ WARNING: API_KEY not found in environment.")
+    print("⚠️ ERROR: API_KEY not found. Please set it in your .env or environment variables.")
 else:
-    print("✅ API_KEY loaded successfully!")
-
-WEATHER_BASE_URL = "https://api.weatherapi.com/v1"
-
+    print("✅ API_KEY loaded successfully.")
 
 @app.route('/')
 def index():
@@ -34,7 +35,9 @@ def get_weather():
         city = request.args.get('city')
         lat = request.args.get('lat')
         lon = request.args.get('lon')
+        day_index = int(request.args.get('day', 0))  # support forecast offset
 
+        # Determine query string
         if city:
             query = city
         elif lat and lon:
@@ -42,7 +45,7 @@ def get_weather():
         else:
             return jsonify({"success": False, "message": "City or coordinates required."}), 400
 
-        # Fetch weather forecast data
+        # ✅ Call WeatherAPI
         forecast_url = f"{WEATHER_BASE_URL}/forecast.json"
         params = {
             "key": WEATHER_API_KEY,
@@ -55,18 +58,23 @@ def get_weather():
         response = requests.get(forecast_url, params=params)
         data = response.json()
 
+        # Handle API errors cleanly
         if "error" in data:
-            return jsonify({"success": False, "message": data["error"]["message"]}), 404
-
-        # Fetch astronomy (sunrise/sunset) data
-        astronomy_url = f"{WEATHER_BASE_URL}/astronomy.json"
-        astronomy_params = {"key": WEATHER_API_KEY, "q": query}
-        astronomy_resp = requests.get(astronomy_url, params=astronomy_params).json()
-        astronomy = astronomy_resp.get("astronomy", {}).get("astro", {})
+            msg = data["error"].get("message", "Invalid API key or request.")
+            return jsonify({"success": False, "message": msg}), 404
 
         current = data["current"]
         location = data["location"]
         forecast_days = data["forecast"]["forecastday"]
+
+        # Use current weather or forecasted day
+        selected_day = forecast_days[min(day_index, len(forecast_days)-1)]
+        day_info = selected_day["day"]
+
+        astronomy_url = f"{WEATHER_BASE_URL}/astronomy.json"
+        astronomy_params = {"key": WEATHER_API_KEY, "q": query, "dt": selected_day["date"]}
+        astronomy_resp = requests.get(astronomy_url, params=astronomy_params).json()
+        astronomy = astronomy_resp.get("astronomy", {}).get("astro", {})
 
         air_quality = current.get("air_quality", {})
         aqi_us = air_quality.get("us-epa-index", 0)
@@ -85,46 +93,29 @@ def get_weather():
             "city_name": location["name"],
             "country": location["country"],
             "localtime": location["localtime"],
-            "temperature": round(current["temp_c"]),
+            "temperature": round(day_info["avgtemp_c"]),
             "humidity": current["humidity"],
             "wind_speed": current["wind_kph"],
-            "description": current["condition"]["text"],
+            "description": day_info["condition"]["text"],
             "lat": location["lat"],
             "lon": location["lon"],
             "sunrise": astronomy.get("sunrise"),
             "sunset": astronomy.get("sunset"),
             "aqi_index": aqi_us,
             "aqi_status": aqi_levels.get(aqi_us, "Unknown"),
-            "pollutants": {
-                "co": round(air_quality.get("co", 0), 2),
-                "no2": round(air_quality.get("no2", 0), 2),
-                "o3": round(air_quality.get("o3", 0), 2),
-                "pm2_5": round(air_quality.get("pm2_5", 0), 2),
-                "pm10": round(air_quality.get("pm10", 0), 2),
-                "so2": round(air_quality.get("so2", 0), 2)
-            },
             "forecast": [
                 {
                     "date": day["date"],
                     "max_temp": day["day"]["maxtemp_c"],
                     "min_temp": day["day"]["mintemp_c"],
                     "condition": day["day"]["condition"]["text"],
-                    "icon": day["day"]["condition"]["icon"],
-                    "hourly": [
-                        {
-                            "time": hour["time"].split(" ")[1],
-                            "temp": hour["temp_c"],
-                            "condition": hour["condition"]["text"],
-                            "icon": hour["condition"]["icon"]
-                        }
-                        for hour in day["hour"][::3]
-                    ]
+                    "icon": day["day"]["condition"]["icon"]
                 } for day in forecast_days
             ]
         })
 
     except Exception as e:
-        return jsonify({"success": False, "message": f"Error: {e}"}), 500
+        return jsonify({"success": False, "message": f"Server Error: {e}"}), 500
 
 
 if __name__ == '__main__':
