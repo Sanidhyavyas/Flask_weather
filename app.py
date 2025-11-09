@@ -3,16 +3,13 @@ import requests
 from flask import Flask, render_template, request, jsonify
 from dotenv import load_dotenv
 
-# Load local .env if running locally
 load_dotenv()
 
 app = Flask(__name__)
 application = app
 
-# Get the API key from environment (works for both local + Vercel)
 WEATHER_API_KEY = os.getenv("WEATHER_API_KEY")
 
-# Fallback if key is missing (useful for debugging)
 if not WEATHER_API_KEY:
     print("⚠️ WARNING: WEATHER_API_KEY not found! Please set it in environment variables.")
 
