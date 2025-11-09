@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>🌦️ Smart Weather Voice Assistant</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <style>
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: "Poppins", sans-serif;
+      background: url('https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=1950&q=80')
+        no-repeat center center fixed;
+      background-size: cover;
+      color: #fff;
+      overflow-x: hidden;
+    }
+
+    .overlay {
+      background: rgba(0, 0, 0, 0.55);
+      position: absolute;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      z-index: 0;
+    }
+
+    header {
+      position: relative;
+      z-index: 2;
+      text-align: center;
+      padding: 40px 20px 10px;
+    }
+
+    header h1 {
+      font-size: 2.2rem;
+      margin-bottom: 10px;
+    }
+
+    header p {
+      color: #dce3ea;
+      font-size: 1.1rem;
+      margin-bottom: 25px;
+    }
+
+    .search-bar {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 10px;
+      max-width: 600px;
+      margin: 0 auto;
+    }
+
+    input {
+      flex: 1;
+      padding: 12px 16px;
+      border: none;
+      border-radius: 25px;
+      font-size: 16px;
+      background: rgba(255, 255, 255, 0.85);
+      color: #222;
+      outline: none;
+    }
+
+    button {
+      padding: 12px 18px;
+      border: none;
+      border-radius: 25px;
+      cursor: pointer;
+      transition: 0.2s;
+      font-weight: 600;
+    }
+
+    #searchBtn { background: #0077b6; color: white; }
+    #micBtn { background: #38b000; color: white; }
+    #searchBtn:hover { background: #005f87; }
+    #micBtn:hover { background: #2d9100; }
+
+    #response {
+      text-align: center;
+      font-size: 1.1rem;
+      margin-top: 10px;
+    }
+
+    .glass {
+      background: rgba(255, 255, 255, 0.12);
+      border-radius: 16px;
+      backdrop-filter: blur(15px);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+
+    .weather-card {
+      width: 400px;
+      margin: 40px auto 20px;
+      padding: 25px;
+      text-align: center;
+      color: #f1f1f1;
+    }
+
+    .weather-card h2 { margin: 0; font-size: 1.8rem; }
+    .temp { font-size: 3.5rem; margin: 10px 0; }
+
+    .details {
+      display: flex;
+      justify-content: space-around;
+      margin-top: 15px;
+      font-size: 0.95rem;
+      color: #e0e7ea;
+    }
+
+    .section-title {
+      text-align: center;
+      margin-top: 20px;
+      font-weight: 600;
+      color: #fefefe;
+    }
+
+    .forecast {
+      display: flex;
+      overflow-x: auto;
+      gap: 15px;
+      padding: 15px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    .forecast-day {
+      min-width: 120px;
+      text-align: center;
+      color: #fff;
+      padding: 12px;
+      cursor: pointer;
+    }
+
+    .forecast-day:hover {
+      transform: scale(1.05);
+      background: rgba(255, 255, 255, 0.2);
+    }
+
+    .forecast-day img {
+      width: 45px; height: 45px; margin-bottom: 5px;
+    }
+
+    footer {
+      text-align: center;
+      font-size: 0.9rem;
+      color: #ccc;
+      margin: 20px 0;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="overlay"></div>
+
+  <header>
+    <h1>🌤️ Smart Weather Voice Assistant</h1>
+    <p>Ask: “Will it rain in Delhi tomorrow?” or “What's the weather like in Pune?”</p>
+
+    <div class="search-bar">
+      <input type="text" id="query" placeholder="Enter city or ask by voice...">
+      <button id="micBtn">🎤</button>
+      <button id="searchBtn">🔍</button>
+    </div>
+
+    <p id="response"></p>
+  </header>
+
+  <main>
+    <div class="weather-card glass" id="weather-result" style="display:none;"></div>
+
+    <h3 id="forecast-title" class="section-title" style="display:none;">🌦️ 3-Day Forecast</h3>
+    <div class="forecast" id="forecast-container"></div>
+  </main>
+
+
+  <script>
+    const micBtn = document.getElementById("micBtn");
+    const searchBtn = document.getElementById("searchBtn");
+    const queryInput = document.getElementById("query");
+    const responseEl = document.getElementById("response");
+    const weatherEl = document.getElementById("weather-result");
+    const forecastEl = document.getElementById("forecast-container");
+
+    // 🎤 Voice recognition setup
+    const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+    recognition.lang = "en-IN";
+    recognition.continuous = false;
+
+    micBtn.onclick = () => {
+      recognition.start();
+      responseEl.innerText = "🎙️ Listening...";
+    };
+
+    recognition.onresult = (event) => {
+      const userSpeech = event.results[0][0].transcript;
+      queryInput.value = userSpeech;
+      responseEl.innerText = "You said: " + userSpeech;
+      handleWeatherQuery(userSpeech);
+    };
+
+    recognition.onerror = () => responseEl.innerText = "Sorry, couldn’t hear clearly.";
+
+    searchBtn.onclick = () => {
+      const query = queryInput.value.trim();
+      if (query) handleWeatherQuery(query);
+    };
+
+    // 🧠 Helper functions
+    function extractCity(text) {
+      const match = text.match(/in ([A-Za-z\s]+)/i);
+      return match ? match[1].trim() : text;
+    }
+
+    function extractForecastDay(text) {
+      text = text.toLowerCase();
+      if (text.includes("day after tomorrow")) return 2;
+      if (text.includes("tomorrow")) return 1;
+      return 0;
+    }
+
+    function speak(text) {
+      const utter = new SpeechSynthesisUtterance(text);
+      utter.lang = "en-IN";
+      window.speechSynthesis.speak(utter);
+    }
+
+    async function handleWeatherQuery(query) {
+      const city = extractCity(query);
+      const dayIndex = extractForecastDay(query);
+
+      responseEl.innerText = "Fetching weather for " + city + "...";
+      weatherEl.style.display = "none";
+      forecastEl.innerHTML = "";
+      document.getElementById("forecast-title").style.display = "none";
+
+      const res = await fetch(`/weather?city=${encodeURIComponent(city)}&day=${dayIndex}`);
+      const data = await res.json();
+
+      if (!data.success) {
+        responseEl.innerText = data.message;
+        speak("Sorry, I couldn't fetch the weather for " + city);
+        return;
+      }
+
+      responseEl.innerText = "";
+      weatherEl.style.display = "block";
+      weatherEl.innerHTML = `
+        <h2>${data.city_name}, ${data.country}</h2>
+        <div class="temp">${data.temperature}°C</div>
+        <p>${data.description}</p>
+        <div class="details">
+          <div>💧 ${data.humidity}%</div>
+          <div>💨 ${data.wind_speed} km/h</div>
+          <div>🌫️ AQI: ${data.aqi_status}</div>
+        </div>
+        <p>🌅 ${data.sunrise} &nbsp;&nbsp; 🌇 ${data.sunset}</p>
+      `;
+
+      document.getElementById("forecast-title").style.display = "block";
+      forecastEl.innerHTML = data.forecast.map(day => `
+        <div class="forecast-day glass">
+          <b>${day.date}</b><br>
+          <img src="${day.icon}" alt="">
+          <div>${day.condition}</div>
+          <div>${day.min_temp}° - ${day.max_temp}°C</div>
+        </div>
+      `).join("");
+
+      if (dayIndex === 1) speak(`Tomorrow in ${data.city_name}, it will be ${data.description} with an average temperature of ${data.temperature}°C.`);
+      else if (dayIndex === 2) speak(`Day after tomorrow in ${data.city_name}, it will be ${data.description}.`);
+      else speak(`Currently in ${data.city_name}, it's ${data.description} with ${data.temperature} degrees Celsius.`);
+    }
+  </script>
+</body>
+</html>

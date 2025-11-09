@@ -1,0 +1,56 @@
+# 🐍 Python cache and compiled files
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.pdb
+*.egg-info/
+*.egg
+*.log
+
+# 🧪 Virtual environment folders
+venv/
+env/
+.venv/
+ENV/
+env.bak/
+venv.bak/
+
+# 🌍 Environment variables and keys
+.env
+.env.*
+*.key
+*.pem
+
+# 🧰 IDE / Editor configuration files
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# 🧱 OS-generated files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# 🗃️ Pella / Deployment cache
+*.db
+instance/
+__init__.pyc
+.cache/
+*.sqlite3
+
+# 📸 Images / temp media (optional)
+static/images/demo.png
+*.tmp
+*.bak
+
+# 🚀 Build or deployment artifacts
+build/
+dist/
+*.spec
+
+# 🧾 Miscellaneous
+*.swp
+*.zip
+*.tar.gz
